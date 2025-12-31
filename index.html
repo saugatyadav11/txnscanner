@@ -1,0 +1,1374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Flipping Letters — Minimal UI + Theme Emboss</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;700&family=IBM+Plex+Mono:wght@400;600&family=JetBrains+Mono:wght@400;600&family=Fira+Code:wght@400;600&family=Source+Code+Pro:wght@400;600&family=Space+Mono:wght@400;700&family=Roboto+Mono:wght@400;600&family=Inconsolata:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      /* Defaults */
+      --background-color:#171717;
+      --text-color:#454545;
+      --word-color:#ffdd94;
+      --word-box-width: 12px;
+      --word-box-height: 12px;
+      --word-box-offset-x: -3.5px;
+      --word-box-offset-y: 0px;
+      --word-box-glow-strong: 4px;
+      --word-box-glow-soft: 1px;
+      --word-box-glow-strong-alpha: 0.15;
+      --word-box-glow-soft-alpha: 0.1;
+
+      --letter-spacing:0.62em;
+      --font-size:0.70em;
+      --row-gap:0.40em;
+      --font-family:'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+
+
+      /* CRT */
+      --scanline-opacity:0.33;
+      --scanline-speed:60s;
+      --scanline-width:1px;
+      --scanline-color:color-mix(in srgb, var(--text-color) 55%, transparent);
+      --flicker-intensity:0.050;
+
+      /* UI (per your ask) */
+      --ui-font: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      --ui-bg: rgba(255,255,255,0.09);
+      --ui-border: rgba(255,255,255,0.14);
+      --ui-text: rgba(255,255,255,0.92);
+      --ui-muted: rgba(255,255,255,0.62);
+      --ui-field: rgba(0,0,0,0.14);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px 16px;
+      overflow:hidden;
+      background:var(--background-color);
+      color:var(--text-color);
+      font-family:var(--font-family);
+      transition: background-color .2s ease;
+      position:relative;
+    }
+
+    /* CRT overlay */
+    body.crt-effect::before{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:2;
+      background:
+        linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%),
+        linear-gradient(90deg,
+          color-mix(in srgb, var(--text-color) 25%, transparent),
+          var(--scanline-color),
+          color-mix(in srgb, var(--word-color) 25%, transparent)
+        );
+      background-size:100% var(--scanline-width), 3px 100%;
+      opacity:var(--scanline-opacity);
+      animation:scanline-anim var(--scanline-speed) linear infinite;
+    }
+    body.crt-effect::after{
+      content:"";
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:2;
+      background:rgba(18,16,16,0.1);
+      opacity:0;
+      animation:flicker-anim calc(var(--flicker-intensity)*1000s) ease-out infinite;
+    }
+    body.crt-effect .letter-container{
+      filter: saturate(1.15) contrast(1.08);
+    }
+    body.crt-effect .letter{
+      text-shadow:
+        0 0 6px color-mix(in srgb, var(--text-color) 35%, transparent),
+        0 0 18px color-mix(in srgb, var(--text-color) 18%, transparent);
+    }
+    body.crt-effect .letter.word-active{
+      text-shadow:
+        0 0 8px color-mix(in srgb, var(--word-color) 55%, transparent),
+        0 0 20px color-mix(in srgb, var(--word-color) 35%, transparent),
+        0 0 2px color-mix(in srgb, var(--word-color) 45%, transparent);
+    }
+    @keyframes scanline-anim{0%{background-position:0 0}100%{background-position:0 100%}}
+    @keyframes flicker-anim{
+      0%{opacity:var(--flicker-intensity)}
+      5%{opacity:calc(var(--flicker-intensity)*0.5)}
+      10%{opacity:var(--flicker-intensity)}
+      15%{opacity:calc(var(--flicker-intensity)*0.8)}
+      25%{opacity:var(--flicker-intensity)}
+      100%{opacity:var(--flicker-intensity)}
+    }
+
+    /* Letters */
+    .letter-container{
+      display:inline-flex;
+      flex-direction:column;
+      gap:var(--row-gap);
+      z-index:1;
+    }
+    .row{display:flex;justify-content:center;white-space:pre}
+    .letter{
+      text-transform:uppercase;
+      font-size:var(--font-size);
+      letter-spacing:var(--letter-spacing);
+      transform-origin:center;
+      transition:color .2s ease, transform .25s ease, text-shadow .2s ease, border-color .2s ease, background-color .2s ease, opacity .25s ease;
+      position:relative;
+
+      will-change:transform;
+    }
+    .letter.entrance-hidden{
+      opacity:0;
+    }
+    .letter.flipping{transform:rotateX(360deg)}
+    .letter.word-active{
+      color:var(--word-color);
+      text-shadow:
+        0 0 10px color-mix(in srgb, var(--word-color) 55%, transparent),
+        0 0 2px color-mix(in srgb, var(--word-color) 35%, transparent);
+    }
+    .word-boxed-effect .letter.word-active{
+      color:var(--background-color);
+      text-shadow:none;
+    }
+    .word-boxed-effect .letter.word-active::before{
+      content:"";
+      position:absolute;
+      width:var(--word-box-width);
+      height:var(--word-box-height);
+      left:calc(50% - (var(--word-box-width) / 2) + var(--word-box-offset-x));
+      top:calc(50% - (var(--word-box-height) / 2) + var(--word-box-offset-y));
+      background:var(--word-color);
+      box-shadow:
+        0 0 var(--word-box-glow-strong) color-mix(in srgb, var(--word-color) calc(var(--word-box-glow-strong-alpha) * 100%), transparent),
+        0 0 var(--word-box-glow-soft) color-mix(in srgb, var(--word-color) calc(var(--word-box-glow-soft-alpha) * 100%), transparent);
+      z-index:-1;
+    }
+
+    /* Boxed */
+    .boxed-letters-effect .letter{
+      letter-spacing:0;
+      width:1.7em;height:1.7em;
+      display:inline-flex;align-items:center;justify-content:center;
+      margin:0.12em;
+      border-radius:6px;
+      border:1px solid rgba(0,0,0,0.14);
+      background:rgba(255,255,255,0.02);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.25);
+    }
+    .boxed-letters-effect .letter.word-active{border-color:rgba(255,254,240,0.75)}
+
+    /* ========== ALWAYS-OPEN, EXTRA MINIMAL PANEL ========== */
+    .ui{
+      position:fixed;
+      top:10px; left:10px;
+      width:min(320px, calc(100vw - 20px));
+      z-index:100;
+      font-family:var(--ui-font);
+      color:var(--ui-text);
+    }
+
+    .panel{
+      background:var(--ui-bg);
+      border:0;
+      border-radius:8px;
+      padding:6px; /* reduced */
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      max-height:min(78vh, 560px);
+      overflow:auto;
+    }
+    .panel::-webkit-scrollbar{width:10px}
+    .panel::-webkit-scrollbar-thumb{
+      background:rgba(255, 255, 255, 0.001);
+      border-radius:999px;
+      border:2px solid transparent;
+      background-clip:padding-box;
+    }
+
+    /* tiny tab row */
+    .tabs{
+      display:flex;
+      gap:6px;
+      padding:0;
+      border-radius:999px;
+      background: transparent;
+      border: 0;
+    }
+    .tab{
+      flex:1;
+      appearance:none;
+      border:0;
+      background:transparent;
+      color:var(--ui-muted);
+      border-radius:999px;
+      padding:5px 6px; /* reduced */
+      font-size:12px;
+      font-weight:500;
+      cursor:pointer;
+      letter-spacing:.1px;
+    }
+    .tab.active{
+      color:#fff;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .section{ display:none; padding-top:6px; }
+    .section.active{ display:block; }
+
+    /* micro rows */
+    .rowctl{
+      display:grid;
+      grid-template-columns: 80px 1fr 56px;
+      gap:6px;
+      align-items:center;
+      padding:4px 2px; /* reduced */
+    }
+    .rowctl label{
+      font-size:12px;
+      color:var(--ui-muted);
+      white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis;
+    }
+    .rowctl.single{
+      grid-template-columns: 80px 1fr;
+    }
+
+    /* minimal sliders */
+    input[type="range"]{
+      width:100%;
+      appearance:none;
+      height:2px;
+      background:rgba(255,255,255,0.22);
+      border-radius:999px;
+      outline:none;
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      appearance:none;
+      width:10px;height:10px;border-radius:999px;
+      background:rgba(255,255,255,0.92);
+      border:1px solid rgba(0,0,0,0.20);
+    }
+    input[type="range"]::-moz-range-thumb{
+      width:10px;height:10px;border-radius:999px;
+      background:rgba(255,255,255,0.92);
+      border:1px solid rgba(0,0,0,0.20);
+    }
+
+    input[type="number"], input[type="text"], select, textarea{
+      width:100%;
+      padding:5px 7px; /* reduced */
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(0,0,0,0.16);
+      color:var(--ui-text);
+      font-size:12px;
+      outline:none;
+      font-family:var(--ui-font);
+    }
+    input[type="number"]{
+      width:56px;
+      text-align:right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .is-hidden{
+      visibility:hidden;
+    }
+    .themeRow{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+      align-items:center;
+      padding: 2px;
+    }
+    .theme-actions{
+      display:grid;
+      gap:6px;
+      grid-template-columns: 1fr;
+      width:100%;
+    }
+    .theme-actions .btn{
+      width:100%;
+    }
+    .theme-grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:6px;
+      width:100%;
+    }
+    .theme-card{
+      display:grid;
+      gap:4px;
+      padding:8px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(0,0,0,0.18);
+      color:#fff;
+      text-align:left;
+      cursor:pointer;
+    }
+    .theme-card .swatch{
+      height:34px;
+      border-radius:6px;
+      display:flex;
+      align-items:center;
+      padding:0 8px;
+      font-size:12px;
+      font-weight:600;
+      letter-spacing:0.4px;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
+    .theme-card .theme-name{
+      font-size:12px;
+      color:var(--ui-muted);
+    }
+    .theme-card.active{
+      box-shadow: inset 0 0 0 2px #fff;
+      border-color: transparent;
+    }
+    .color-row{
+      display:grid;
+      grid-template-columns: 1fr max-content auto;
+      gap:8px;
+      align-items:center;
+      padding:4px 2px;
+    }
+    .color-row label{
+      font-size:12px;
+      color:var(--ui-muted);
+    }
+    .reset-icon{
+      appearance:none;
+      border:0;
+      background:rgba(255,255,255,0.10);
+      color:var(--ui-text);
+      border-radius:999px;
+      height:22px;
+      padding:0 8px;
+      font-size:10px;
+      cursor:pointer;
+    }
+    input[type="color"]{
+      appearance:none;
+      width:22px;height:22px;
+      border-radius:7px;
+      border:1px solid rgba(255,255,255,0.14);
+      padding:0;background:transparent;cursor:pointer;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper{padding:0}
+    input[type="color"]::-webkit-color-swatch{border:none;border-radius:6px}
+    input[type="color"]::-moz-color-swatch{border:none;border-radius:6px}
+
+    /* tiny toggles */
+    .togline{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:4px 2px; /* reduced */
+    }
+    .togline span{font-size:12px;color:var(--ui-muted)}
+    .switch{
+      position:relative;width:34px;height:18px;flex-shrink:0;
+    }
+    .switch input{display:none}
+    .pill{
+      position:absolute;inset:0;border-radius:999px;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(255,255,255,0.10);
+      cursor:pointer;transition:.15s ease;
+    }
+    .pill:before{
+      content:"";
+      position:absolute;width:12px;height:12px;border-radius:999px;
+      left:3px;top:50%;transform:translateY(-50%);
+      background:rgba(255,255,255,0.92);transition:.15s ease;
+    }
+    .switch input:checked + .pill{background:rgba(255,255,255,0.16)}
+    .switch input:checked + .pill:before{transform:translateY(-50%) translateX(15px)}
+
+    textarea{min-height:68px; resize:vertical; line-height:1.35}
+    .hint{font-size:12px;color:var(--ui-muted);padding:4px 2px 0 2px}
+
+    /* compact action buttons (pause/rebuild) */
+    .actions{
+      display:flex;
+      gap:6px;
+      justify-content:flex-end;
+      padding-top:6px;
+    }
+    .actions .btn{
+      width:100%;
+    }
+    .actions.split .btn{
+      flex:1;
+    }
+    .btn{
+      appearance:none;
+      border:0;
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:500;
+      cursor:pointer;
+    }
+    .btn.random{
+      background:#fff;
+      color:#000;
+    }
+    .btn.random:hover{
+      background: rgba(255,255,255,0.9);
+    }
+    .btn.random{
+      margin-bottom:8px;
+    }
+    .btn.primary{
+      background:#fff;
+      color:#000;
+    }
+    .btn.primary:hover{
+      background: rgba(255,255,255,0.9);
+    }
+    .btn.primary{
+      margin-bottom:8px;
+    }
+    .btn.small{
+      padding:5px 8px;
+      font-size:12px;
+    }
+    .btn:hover{ background: rgba(255,255,255,0.12); }
+    .controls-toggle{
+      display:none;
+      width:100%;
+    }
+    .ui.collapsed #panel{
+      display:none;
+    }
+
+    @media (max-width:640px){
+      .ui{
+        top:auto;
+        bottom:10px;
+        left:10px;
+        right:10px;
+        width:auto;
+      }
+      body{padding:20px}
+      .theme-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
+      .controls-toggle{display:block;margin-bottom:6px;}
+      .rowctl.letters-control{display:none}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ui">
+    <button class="btn controls-toggle" id="controls-toggle">Controls</button>
+    <div class="panel" id="panel">
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="theme">Theme</button>
+        <button class="tab" data-tab="layout">Layout</button>
+        <button class="tab" data-tab="anim">Anim</button>
+        <button class="tab" data-tab="words">Words</button>
+        <button class="tab" data-tab="fx">FX</button>
+      </div>
+
+      <!-- THEME -->
+      <div class="section active" id="sec-theme">
+        <div class="themeRow">
+          <div id="theme-select" class="theme-grid" aria-label="Theme preset"></div>
+          <div class="theme-actions">
+            <button class="btn random" id="randomize-theme">Random</button>
+          </div>
+        </div>
+        <div class="color-row">
+          <label for="bg-color">Background</label>
+          <button class="reset-icon is-hidden" type="button" data-reset="bg">Reset</button>
+          <input type="color" id="bg-color" value="#171717" title="Background" />
+        </div>
+        <div class="color-row">
+          <label for="text-color">Letters</label>
+          <button class="reset-icon is-hidden" type="button" data-reset="text">Reset</button>
+          <input type="color" id="text-color" value="#454545" title="Letters" />
+        </div>
+      <div class="color-row">
+        <label for="word-color">Word</label>
+        <button class="reset-icon is-hidden" type="button" data-reset="word">Reset</button>
+        <input type="color" id="word-color" value="#ffdd94" title="Word" />
+      </div>
+      </div>
+
+      <!-- LAYOUT -->
+      <div class="section" id="sec-layout">
+        <div class="rowctl single">
+          <label>Typeface</label>
+          <select id="font-family-select">
+            <option value="'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">Geist Mono</option>
+            <option value="'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">IBM Plex Mono</option>
+            <option value="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">JetBrains Mono</option>
+            <option value="'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">Fira Code</option>
+            <option value="'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">Source Code Pro</option>
+            <option value="'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">Space Mono</option>
+            <option value="'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">Roboto Mono</option>
+            <option value="'Inconsolata', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">Inconsolata</option>
+            <option value="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\"Courier New\", monospace">System Mono</option>
+          </select>
+        </div>
+        <div class="rowctl letters-control">
+          <label>Letters</label>
+          <input type="range" id="num-letters" min="10" max="300" step="1" value="83" />
+          <input type="number" id="num-letters-num" min="10" max="300" step="1" value="83" />
+        </div>
+
+        <div class="rowctl">
+          <label>Rows</label>
+          <input type="range" id="num-rows" min="1" max="30" step="1" value="6" />
+          <input type="number" id="num-rows-num" min="1" max="30" step="1" value="6" />
+        </div>
+
+        <div class="rowctl">
+          <label>Spacing</label>
+          <input type="range" id="letter-spacing" min="0" max="2" step="0.01" value="0.62" />
+          <input type="number" id="letter-spacing-num" min="0" max="2" step="0.01" value="0.62" />
+        </div>
+
+        <div class="rowctl">
+          <label>Size</label>
+          <input type="range" id="font-size" min="0.3" max="4" step="0.01" value="0.70" />
+          <input type="number" id="font-size-num" min="0.3" max="4" step="0.01" value="0.70" />
+        </div>
+
+        <div class="rowctl">
+          <label>Row gap</label>
+          <input type="range" id="row-gap" min="0" max="4" step="0.01" value="0.40" />
+          <input type="number" id="row-gap-num" min="0" max="4" step="0.01" value="0.40" />
+        </div>
+
+        <div class="togline">
+          <span>Boxed</span>
+          <label class="switch">
+            <input type="checkbox" id="boxed-toggle">
+            <i class="pill"></i>
+          </label>
+        </div>
+      </div>
+
+      <!-- ANIM -->
+      <div class="section" id="sec-anim">
+        <div class="rowctl single">
+          <label>Entrance</label>
+          <select id="entrance-mode">
+            <option value="random">Firefly</option>
+            <option value="line">Line</option>
+            <option value="burst">Bloom</option>
+            <option value="fade">Fade</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div class="rowctl">
+          <label>Reveal ms</label>
+          <input type="range" id="reveal-speed" min="0" max="12" step="0.5" value="1.5" />
+          <input type="number" id="reveal-speed-num" min="0" max="12" step="0.5" value="1.5" />
+        </div>
+        <div class="rowctl">
+          <label>Flip ms</label>
+          <input type="range" id="flip-speed" min="10" max="500" step="1" value="27" />
+          <input type="number" id="flip-speed-num" min="10" max="500" step="1" value="27" />
+        </div>
+
+        <div class="rowctl">
+          <label>Word %</label>
+          <input type="range" id="word-chance" min="0" max="0.10" step="0.001" value="0.10" />
+          <input type="number" id="word-chance-num" min="0" max="0.10" step="0.001" value="0.10" />
+        </div>
+
+        <div class="rowctl">
+          <label>Stagger</label>
+          <input type="range" id="word-stagger" min="10" max="400" step="1" value="112" />
+          <input type="number" id="word-stagger-num" min="10" max="400" step="1" value="112" />
+        </div>
+
+        <div class="rowctl">
+          <label>Flip dur</label>
+          <input type="range" id="flip-duration" min="80" max="600" step="1" value="80" />
+          <input type="number" id="flip-duration-num" min="80" max="600" step="1" value="80" />
+        </div>
+      </div>
+
+      <!-- WORDS -->
+      <div class="section" id="sec-words">
+        <textarea id="wordlist" placeholder="Mint, NFT, Transfer&#10;Swap&#10;Stake"></textarea>
+        <div class="actions">
+          <button class="btn primary" id="reset-words">Reset words</button>
+        </div>
+        <div class="togline">
+          <span>Added boxed highlight</span>
+          <label class="switch">
+            <input type="checkbox" id="word-box-toggle">
+            <i class="pill"></i>
+          </label>
+        </div>
+      </div>
+
+      <!-- FX -->
+      <div class="section" id="sec-fx">
+        <div class="togline">
+          <span>CRT</span>
+          <label class="switch">
+            <input type="checkbox" id="crt-toggle" checked>
+            <i class="pill"></i>
+          </label>
+        </div>
+
+        <div class="rowctl">
+          <label>Opacity</label>
+          <input type="range" id="scanline-opacity" min="0" max="0.9" step="0.01" value="0.33" />
+          <input type="number" id="scanline-opacity-num" min="0" max="0.9" step="0.01" value="0.33" />
+        </div>
+
+        <div class="rowctl">
+          <label>Width</label>
+          <input type="range" id="scanline-width" min="1" max="20" step="1" value="1" />
+          <input type="number" id="scanline-width-num" min="1" max="20" step="1" value="1" />
+        </div>
+
+        <div class="rowctl">
+          <label>Speed</label>
+          <input type="range" id="scanline-speed" min="1" max="60" step="1" value="60" />
+          <input type="number" id="scanline-speed-num" min="1" max="60" step="1" value="60" />
+        </div>
+
+        <div class="rowctl">
+          <label>Flicker</label>
+          <input type="range" id="flicker-intensity" min="0" max="0.15" step="0.001" value="0.05" />
+          <input type="number" id="flicker-intensity-num" min="0" max="0.15" step="0.001" value="0.05" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="letter-container" class="letter-container"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // ==========================================================
+      // THEMES (easy to edit)
+      // Each theme supports: bg, text, word
+      // ==========================================================
+      const THEMES = [
+        {
+          name: "Moonlight",
+          bg: "#171717",
+          text: "#454545",
+          word: "#ffdd94"
+        },
+        {
+          name: "XRAY",
+          bg: "#121111",
+          text: "#433c37",
+          word: "#ff8442"
+        },
+        {
+          name: "Matrix",
+          bg: "#0f0f0f",
+          text: "#2f3c2f",
+          word: "#2bff00"
+        },
+      ];
+
+      // ----------------------------
+      // CONFIG defaults (screenshot baseline)
+      // ----------------------------
+      const DEFAULT_WORDS = ['Mint','NFT','Transfer','Swap','Burn','Token','Sale','Stake','Bridge','Wallet','Vote'];
+      const config = {
+        numRows: 6,
+        lettersPerRow: 83,
+        wordList: [...DEFAULT_WORDS],
+        scanSpeed: 27,
+        wordChance: 0.10,
+        wordSpellStagger: 112,
+        entranceMode: 'random',
+        revealSpeed: 1.5,
+        flipDuration: 80
+      };
+      const REVEAL_DEFAULTS = {
+        random: 1.5,
+        line: 2,
+        burst: 1,
+        fade: 1.5,
+        none: 0
+      };
+
+      // ----------------------------
+      // DOM & STATE
+      // ----------------------------
+      const ui = document.querySelector('.ui');
+      const container = document.getElementById('letter-container');
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let allRows = [];
+      let timeouts = new Set();
+      let usedWords = new Set();
+      let isPaused = false;
+      let currentThemeIndex = 0;
+      let themeBaseline = { bg: '', text: '', word: '' };
+      let revealRebuildTimer = null;
+      let mobileLettersTimer = null;
+
+      // Tabs
+      const tabs = document.getElementById('tabs');
+      const tabButtons = [...tabs.querySelectorAll('.tab')];
+      const sections = {
+        theme: document.getElementById('sec-theme'),
+        layout: document.getElementById('sec-layout'),
+        anim: document.getElementById('sec-anim'),
+        words: document.getElementById('sec-words'),
+        fx: document.getElementById('sec-fx'),
+      };
+
+      // Theme controls
+      const themeSelect = document.getElementById('theme-select');
+      const bgColorPicker = document.getElementById('bg-color');
+      const textColorPicker = document.getElementById('text-color');
+      const wordColorPicker = document.getElementById('word-color');
+      const controlsToggle = document.getElementById('controls-toggle');
+      const randomizeThemeBtn = document.getElementById('randomize-theme');
+      const resetBgBtn = document.querySelector('[data-reset="bg"]');
+      const resetTextBtn = document.querySelector('[data-reset="text"]');
+      const resetWordBtn = document.querySelector('[data-reset="word"]');
+
+      // Layout
+      const numLettersRange = document.getElementById('num-letters');
+      const numLettersNum = document.getElementById('num-letters-num');
+      const numRowsRange = document.getElementById('num-rows');
+      const numRowsNum = document.getElementById('num-rows-num');
+      const letterSpacingRange = document.getElementById('letter-spacing');
+      const letterSpacingNum = document.getElementById('letter-spacing-num');
+      const fontSizeRange = document.getElementById('font-size');
+      const fontSizeNum = document.getElementById('font-size-num');
+      const rowGapRange = document.getElementById('row-gap');
+      const rowGapNum = document.getElementById('row-gap-num');
+      const boxedToggle = document.getElementById('boxed-toggle');
+      const fontFamilySelect = document.getElementById('font-family-select');
+
+      // Anim
+      const flipSpeedRange = document.getElementById('flip-speed');
+      const flipSpeedNum = document.getElementById('flip-speed-num');
+      const entranceModeSelect = document.getElementById('entrance-mode');
+      const revealSpeedRange = document.getElementById('reveal-speed');
+      const revealSpeedNum = document.getElementById('reveal-speed-num');
+      const wordChanceRange = document.getElementById('word-chance');
+      const wordChanceNum = document.getElementById('word-chance-num');
+      const wordStaggerRange = document.getElementById('word-stagger');
+      const wordStaggerNum = document.getElementById('word-stagger-num');
+      const flipDurRange = document.getElementById('flip-duration');
+      const flipDurNum = document.getElementById('flip-duration-num');
+
+      // FX
+      const crtToggle = document.getElementById('crt-toggle');
+      const scanOpacityRange = document.getElementById('scanline-opacity');
+      const scanOpacityNum = document.getElementById('scanline-opacity-num');
+      const scanWidthRange = document.getElementById('scanline-width');
+      const scanWidthNum = document.getElementById('scanline-width-num');
+      const scanSpeedRange = document.getElementById('scanline-speed');
+      const scanSpeedNum = document.getElementById('scanline-speed-num');
+      const flickerRange = document.getElementById('flicker-intensity');
+      const flickerNum = document.getElementById('flicker-intensity-num');
+
+      // Words
+      const wordlistTextarea = document.getElementById('wordlist');
+      const resetWordsBtn = document.getElementById('reset-words');
+      const wordBoxToggle = document.getElementById('word-box-toggle');
+
+      // Actions
+
+      // ----------------------------
+      // Helpers
+      // ----------------------------
+      const setVar = (k, v) => document.documentElement.style.setProperty(k, v);
+      const randChar = () => alphabet[Math.floor(Math.random() * alphabet.length)];
+      const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+      const randFloat = (min, max) => Math.random() * (max - min) + min;
+      const wait = (ms) => new Promise(res => setTimeout(res, ms));
+
+      function clamp(n, min, max){ return Math.min(max, Math.max(min, n)); }
+      function scheduleRevealRebuild(){
+        if(revealRebuildTimer){ clearTimeout(revealRebuildTimer); }
+        revealRebuildTimer = setTimeout(() => rebuild(), 150);
+      }
+      function isMobileLayout(){
+        return window.matchMedia('(max-width:640px)').matches;
+      }
+      function updateLettersForMobile(){
+        if(!isMobileLayout()) return;
+        if(mobileLettersTimer){ clearTimeout(mobileLettersTimer); }
+        mobileLettersTimer = setTimeout(() => {
+          const availableWidth = Math.max(0, window.innerWidth - 40);
+          const probe = document.createElement('span');
+          probe.className = 'letter';
+          probe.textContent = 'A';
+          probe.style.position = 'absolute';
+          probe.style.visibility = 'hidden';
+          probe.style.pointerEvents = 'none';
+          document.body.appendChild(probe);
+          const letterWidth = Math.max(1, probe.getBoundingClientRect().width);
+          probe.remove();
+          const cols = Math.max(1, Math.floor(availableWidth / letterWidth));
+          if(cols !== config.lettersPerRow){
+            numLettersRange.value = cols;
+            numLettersNum.value = cols;
+            rebuild();
+          }
+        }, 120);
+      }
+      function setThemeBaseline(){
+        themeBaseline = {
+          bg: bgColorPicker.value.toLowerCase(),
+          text: textColorPicker.value.toLowerCase(),
+          word: wordColorPicker.value.toLowerCase()
+        };
+        updateResetButtons();
+      }
+      function updateResetButtons(){
+        resetBgBtn.classList.toggle('is-hidden', bgColorPicker.value.toLowerCase() === themeBaseline.bg);
+        resetTextBtn.classList.toggle('is-hidden', textColorPicker.value.toLowerCase() === themeBaseline.text);
+        resetWordBtn.classList.toggle('is-hidden', wordColorPicker.value.toLowerCase() === themeBaseline.word);
+      }
+
+      function hslToHex(h, s, l){
+        s /= 100; l /= 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const hh = h / 60;
+        const x = c * (1 - Math.abs((hh % 2) - 1));
+        let r = 0, g = 0, b = 0;
+        if(hh >= 0 && hh < 1){ r = c; g = x; b = 0; }
+        else if(hh >= 1 && hh < 2){ r = x; g = c; b = 0; }
+        else if(hh >= 2 && hh < 3){ r = 0; g = c; b = x; }
+        else if(hh >= 3 && hh < 4){ r = 0; g = x; b = c; }
+        else if(hh >= 4 && hh < 5){ r = x; g = 0; b = c; }
+        else if(hh >= 5 && hh < 6){ r = c; g = 0; b = x; }
+        const m = l - c / 2;
+        const toHex = (v) => {
+          const hex = Math.round((v + m) * 255).toString(16).padStart(2, '0');
+          return hex;
+        };
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+
+      function hexToRgb(hex){
+        const clean = hex.replace('#','');
+        const num = parseInt(clean, 16);
+        return {
+          r: (num >> 16) & 255,
+          g: (num >> 8) & 255,
+          b: num & 255
+        };
+      }
+
+      function relativeLuminance({r, g, b}){
+        const srgb = [r, g, b].map(v => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+      }
+
+      function contrastRatio(hexA, hexB){
+        const lumA = relativeLuminance(hexToRgb(hexA));
+        const lumB = relativeLuminance(hexToRgb(hexB));
+        const lighter = Math.max(lumA, lumB);
+        const darker = Math.min(lumA, lumB);
+        return (lighter + 0.05) / (darker + 0.05);
+      }
+
+      function generateSafeDarkTheme(){
+        const baseHue = randFloat(0, 360);
+        const bg = {
+          h: (baseHue + randFloat(-8, 8) + 360) % 360,
+          s: randFloat(4, 14),
+          l: randFloat(6, 12)
+        };
+        const text = {
+          h: (baseHue + randFloat(-6, 6) + 360) % 360,
+          s: randFloat(6, 18),
+          l: randFloat(22, 32)
+        };
+        const word = {
+          h: (baseHue + randFloat(-8, 8) + 360) % 360,
+          s: randFloat(40, 70),
+          l: randFloat(62, 78)
+        };
+
+        let bgHex = hslToHex(bg.h, bg.s, bg.l);
+        let textHex = hslToHex(text.h, text.s, text.l);
+        let wordHex = hslToHex(word.h, word.s, word.l);
+
+        if(contrastRatio(textHex, bgHex) < 3){
+          text.l = clamp(text.l + 8, 20, 40);
+          textHex = hslToHex(text.h, text.s, text.l);
+        }
+        if(contrastRatio(wordHex, bgHex) < 4.5){
+          word.l = clamp(word.l + 8, 55, 75);
+          wordHex = hslToHex(word.h, word.s, word.l);
+        }
+
+        return {
+          bg: bgHex,
+          text: textHex,
+          word: wordHex
+        };
+      }
+
+      function bindRangeNumber(rangeEl, numberEl, onValue){
+        const fromRange = () => { numberEl.value = rangeEl.value; onValue(parseFloat(rangeEl.value)); };
+        const fromNumber = () => {
+          const min = parseFloat(numberEl.min);
+          const max = parseFloat(numberEl.max);
+          const v = clamp(parseFloat(numberEl.value || rangeEl.value), min, max);
+          numberEl.value = v; rangeEl.value = v; onValue(v);
+        };
+        rangeEl.addEventListener('input', fromRange);
+        numberEl.addEventListener('input', fromNumber);
+        numberEl.addEventListener('blur', fromNumber);
+        fromRange();
+      }
+
+      function clearAllTimeouts(){
+        timeouts.forEach(clearTimeout);
+        timeouts.clear();
+      }
+
+      function parseWords(text){
+        const parts = text.split(/[\n,]+/g).map(s => s.trim()).filter(Boolean);
+        const seen = new Set();
+        const out = [];
+        for(const w of parts){
+          const up = w.toUpperCase();
+          if(!seen.has(up)){ seen.add(up); out.push(w); }
+        }
+        return out;
+      }
+
+      function applyWordsFromTextarea(){
+        const words = parseWords(wordlistTextarea.value);
+        config.wordList = words.length ? words : [...DEFAULT_WORDS];
+        usedWords.clear();
+      }
+
+      // ----------------------------
+      // Tabs
+      // ----------------------------
+      function setTab(name){
+        tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+        Object.entries(sections).forEach(([k, el]) => el.classList.toggle('active', k === name));
+      }
+      tabButtons.forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+
+      // ----------------------------
+      // Theme system
+      // ----------------------------
+      function populateThemes(){
+        themeSelect.innerHTML = "";
+        THEMES.forEach((t, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'theme-card';
+          btn.dataset.index = String(i);
+
+          const swatch = document.createElement('div');
+          swatch.className = 'swatch';
+          swatch.style.background = t.bg;
+          swatch.style.color = t.word;
+          swatch.textContent = 'Aa';
+
+          const name = document.createElement('div');
+          name.className = 'theme-name';
+          name.textContent = t.name;
+
+          btn.appendChild(swatch);
+          btn.appendChild(name);
+          btn.addEventListener('click', () => applyTheme(i));
+          themeSelect.appendChild(btn);
+        });
+      }
+
+      function applyTheme(themeIndex){
+        const t = THEMES[themeIndex] || THEMES[0];
+        currentThemeIndex = themeIndex in THEMES ? themeIndex : 0;
+
+        setVar('--background-color', t.bg);
+        setVar('--text-color', t.text);
+        setVar('--word-color', t.word);
+
+        bgColorPicker.value = t.bg;
+        textColorPicker.value = t.text;
+        wordColorPicker.value = t.word;
+
+        setThemeBaseline();
+
+        [...themeSelect.querySelectorAll('.theme-card')].forEach((el) => {
+          el.classList.toggle('active', el.dataset.index === String(currentThemeIndex));
+        });
+        rebuild();
+      }
+
+      // If user edits colors manually -> keep current selection
+      function ensureCustomTheme(){
+        [...themeSelect.querySelectorAll('.theme-card')].forEach((el) => {
+          el.classList.toggle('active', el.dataset.index === String(currentThemeIndex));
+        });
+        updateResetButtons();
+      }
+
+      // ----------------------------
+      // Core animation
+      // ----------------------------
+      function createRow(hidden = false){
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'row';
+        if(hidden){ rowDiv.classList.add('hidden'); }
+        const letterSpans = [];
+
+        for(let i=0;i<config.lettersPerRow;i++){
+          const s = document.createElement('span');
+          s.className = 'letter';
+          s.classList.add('entrance-hidden');
+          s.textContent = randChar();
+          rowDiv.appendChild(s);
+          letterSpans.push(s);
+        }
+        container.appendChild(rowDiv);
+        return {
+          letters:letterSpans,
+          isBusy:false,
+          status:'idle',
+          activeWord:null,
+          readyForWords:false,
+          readyAfter: randInt(0, config.lettersPerRow - 1)
+        };
+      }
+
+      async function revealEntrance(){
+        const mode = config.entranceMode;
+        const rows = allRows;
+        const cols = config.lettersPerRow;
+
+        if(mode === 'none'){
+          rows.forEach(r => r.letters.forEach(s => s.classList.remove('entrance-hidden')));
+          return;
+        }
+
+        if(mode === 'line'){
+          const tasks = rows.map((row, idx) => (async () => {
+            await wait(idx * (14 + randInt(0, 10)) * config.revealSpeed);
+            let i = 0;
+            while(i < row.letters.length){
+              if(isPaused) return;
+              const burst = randInt(1, 4);
+              for(let b=0; b<burst && i<row.letters.length; b++, i++){
+                row.letters[i].classList.remove('entrance-hidden');
+              }
+              await wait(randInt(1, 6) * config.revealSpeed);
+            }
+            if(!isPaused){ animateRow(row); }
+          })());
+          await Promise.all(tasks);
+          return;
+        }
+
+        if(mode === 'fade'){
+          for(let i=0;i<rows.length;i++){
+            const row = rows[i];
+            row.letters.forEach(s => s.classList.remove('entrance-hidden'));
+            if(!isPaused){ animateRow(row); }
+            if(i < rows.length - 1){ await wait(60 * config.revealSpeed); }
+          }
+          return;
+        }
+
+        if(mode === 'burst'){
+          const tasks = rows.map((row, idx) => (async () => {
+            await wait(idx * (10 + randInt(0, 16)) * config.revealSpeed);
+            const center = randInt(0, cols - 1);
+            let left = center;
+            let right = center + 1;
+            row.letters[center].classList.remove('entrance-hidden');
+            while(left > 0 || right < cols){
+              if(isPaused) return;
+              if(left > 0 && Math.random() > 0.25){
+                left--;
+                row.letters[left].classList.remove('entrance-hidden');
+              }
+              if(right < cols && Math.random() > 0.25){
+                row.letters[right].classList.remove('entrance-hidden');
+                right++;
+              }
+              await wait(randInt(2, 8) * config.revealSpeed);
+            }
+            if(!isPaused){ animateRow(row); }
+          })());
+          await Promise.all(tasks);
+          return;
+        }
+
+        if(mode === 'random'){
+          const spans = rows.flatMap(r => r.letters);
+          for(let i=spans.length - 1; i>0; i--){
+            const j = randInt(0, i);
+            [spans[i], spans[j]] = [spans[j], spans[i]];
+          }
+          if(config.revealSpeed === 0){
+            spans.forEach(span => span.classList.remove('entrance-hidden'));
+            if(!isPaused){ rows.forEach(animateRow); }
+            return;
+          }
+          const batch = Math.max(1, Math.round(6 / Math.max(config.revealSpeed, 0.5)));
+          for(let i=0;i<spans.length;i+=batch){
+            for(let b=0;b<batch && (i + b) < spans.length;b++){
+              spans[i + b].classList.remove('entrance-hidden');
+            }
+            await wait(config.revealSpeed);
+          }
+          if(!isPaused){ rows.forEach(animateRow); }
+        }
+      }
+
+      async function spellWord(row, word, startIndex){
+        for(let i=0;i<word.length;i++){
+          if(isPaused) return;
+          if(row.status !== 'spelling' || !row.activeWord) return;
+
+          const span = row.letters[startIndex + i];
+          span.textContent = word[i];
+          span.classList.add('word-active');
+
+          await new Promise(res => {
+            const id = setTimeout(res, config.wordSpellStagger);
+            timeouts.add(id);
+          });
+        }
+        if(row.status === 'spelling') row.status = 'displayed';
+      }
+
+      function formWordInRow(row, startIndex){
+        if(row.isBusy || isPaused) return;
+
+        const available = config.wordList
+          .map(w => w.toUpperCase())
+          .filter(w => !usedWords.has(w));
+
+        if(!available.length) return;
+
+        const word = available[Math.floor(Math.random()*available.length)];
+        if(startIndex + word.length > config.lettersPerRow) return;
+
+        row.isBusy = true;
+        row.status = 'spelling';
+        usedWords.add(word);
+        row.activeWord = { word, start:startIndex, end:startIndex + word.length - 1 };
+        spellWord(row, word, startIndex);
+      }
+
+      function animateRow(row){
+        let idx = randInt(0, config.lettersPerRow - 1);
+
+        const tick = () => {
+          if(isPaused) return;
+
+          const span = row.letters[idx];
+          const inside = !!(row.isBusy && row.activeWord && idx >= row.activeWord.start && idx <= row.activeWord.end);
+
+          if(!row.readyForWords && idx === row.readyAfter){
+            row.readyForWords = true;
+          }
+
+          if(inside){
+            if(row.status === 'displayed' && span.classList.contains('word-active')){
+              span.classList.remove('word-active');
+              span.textContent = randChar();
+            }
+          } else {
+            span.textContent = randChar();
+            span.classList.remove('word-active');
+          }
+
+          span.classList.add('flipping');
+          const flipId = setTimeout(() => span.classList.remove('flipping'), config.flipDuration);
+          timeouts.add(flipId);
+
+          if(row.isBusy && row.status === 'displayed' && row.activeWord && idx === row.activeWord.end){
+            usedWords.delete(row.activeWord.word);
+            row.isBusy = false;
+            row.activeWord = null;
+            row.status = 'idle';
+          }
+
+          if(row.readyForWords && !row.isBusy && Math.random() < config.wordChance){
+            formWordInRow(row, idx);
+          }
+
+          idx = (idx + 1) % config.lettersPerRow;
+
+          const id = setTimeout(tick, config.scanSpeed);
+          timeouts.add(id);
+        };
+
+        tick();
+      }
+
+      async function rebuild(){
+        clearAllTimeouts();
+        container.innerHTML = '';
+        allRows = [];
+        usedWords.clear();
+
+        config.lettersPerRow = parseInt(numLettersNum.value, 10);
+        config.numRows = parseInt(numRowsNum.value, 10);
+
+        for(let i=0;i<config.numRows;i++){
+          const row = createRow();
+          allRows.push(row);
+        }
+        await revealEntrance();
+      }
+
+      // ----------------------------
+      // Wire controls
+      // ----------------------------
+      populateThemes();
+      applyTheme(0);
+      if(window.matchMedia('(max-width:640px)').matches){
+        ui.classList.add('collapsed');
+        controlsToggle.textContent = 'Controls';
+        updateLettersForMobile();
+      }
+      const defaultFontFamily = getComputedStyle(document.documentElement)
+        .getPropertyValue('--font-family')
+        .trim();
+      if(defaultFontFamily){
+        const match = [...fontFamilySelect.options].find(opt => opt.value === defaultFontFamily);
+        if(match){ fontFamilySelect.value = defaultFontFamily; }
+      }
+
+      bgColorPicker.addEventListener('input', (e) => { setVar('--background-color', e.target.value); ensureCustomTheme(); });
+      textColorPicker.addEventListener('input', (e) => { setVar('--text-color', e.target.value); ensureCustomTheme(); });
+      wordColorPicker.addEventListener('input', (e) => { setVar('--word-color', e.target.value); ensureCustomTheme(); });
+      resetBgBtn.addEventListener('click', () => {
+        bgColorPicker.value = themeBaseline.bg;
+        setVar('--background-color', themeBaseline.bg);
+        updateResetButtons();
+      });
+      resetTextBtn.addEventListener('click', () => {
+        textColorPicker.value = themeBaseline.text;
+        setVar('--text-color', themeBaseline.text);
+        updateResetButtons();
+      });
+      resetWordBtn.addEventListener('click', () => {
+        wordColorPicker.value = themeBaseline.word;
+        setVar('--word-color', themeBaseline.word);
+        updateResetButtons();
+      });
+      randomizeThemeBtn.addEventListener('click', () => {
+        const t = generateSafeDarkTheme();
+        currentThemeIndex = -1;
+        setVar('--background-color', t.bg);
+        setVar('--text-color', t.text);
+        setVar('--word-color', t.word);
+
+        bgColorPicker.value = t.bg;
+        textColorPicker.value = t.text;
+        wordColorPicker.value = t.word;
+
+        [...themeSelect.querySelectorAll('.theme-card')].forEach((el) => {
+          el.classList.remove('active');
+        });
+        setThemeBaseline();
+        rebuild();
+      });
+      controlsToggle.addEventListener('click', () => {
+        ui.classList.toggle('collapsed');
+        controlsToggle.textContent = ui.classList.contains('collapsed') ? 'Controls' : 'Close';
+      });
+      window.addEventListener('resize', updateLettersForMobile);
+      fontFamilySelect.addEventListener('change', () => {
+        const v = fontFamilySelect.value;
+        if(v){ setVar('--font-family', v); }
+      });
+
+      // Layout
+      bindRangeNumber(numLettersRange, numLettersNum, () => {});
+      bindRangeNumber(numRowsRange, numRowsNum, () => {});
+      bindRangeNumber(letterSpacingRange, letterSpacingNum, (v) => setVar('--letter-spacing', `${v}em`));
+      bindRangeNumber(fontSizeRange, fontSizeNum, (v) => setVar('--font-size', `${v}em`));
+      bindRangeNumber(rowGapRange, rowGapNum, (v) => setVar('--row-gap', `${v}em`));
+      boxedToggle.addEventListener('change', (e) => document.body.classList.toggle('boxed-letters-effect', e.target.checked));
+
+      // Anim
+      bindRangeNumber(flipSpeedRange, flipSpeedNum, (v) => config.scanSpeed = parseInt(v,10));
+      bindRangeNumber(wordChanceRange, wordChanceNum, (v) => config.wordChance = v);
+      bindRangeNumber(wordStaggerRange, wordStaggerNum, (v) => config.wordSpellStagger = parseInt(v,10));
+      bindRangeNumber(flipDurRange, flipDurNum, (v) => config.flipDuration = parseInt(v,10));
+      bindRangeNumber(revealSpeedRange, revealSpeedNum, (v) => {
+        config.revealSpeed = parseFloat(v);
+        scheduleRevealRebuild();
+      });
+      entranceModeSelect.addEventListener('change', (e) => {
+        config.entranceMode = e.target.value;
+        const def = REVEAL_DEFAULTS[config.entranceMode] ?? 1;
+        config.revealSpeed = def;
+        revealSpeedRange.value = def;
+        revealSpeedNum.value = def;
+        rebuild();
+      });
+
+      // FX
+      crtToggle.addEventListener('change', (e) => document.body.classList.toggle('crt-effect', e.target.checked));
+      document.body.classList.toggle('crt-effect', crtToggle.checked);
+      bindRangeNumber(scanOpacityRange, scanOpacityNum, (v) => setVar('--scanline-opacity', v));
+      bindRangeNumber(scanWidthRange, scanWidthNum, (v) => setVar('--scanline-width', `${v}px`));
+      bindRangeNumber(scanSpeedRange, scanSpeedNum, (v) => setVar('--scanline-speed', `${v}s`));
+      bindRangeNumber(flickerRange, flickerNum, (v) => setVar('--flicker-intensity', v));
+
+      // Words
+      wordlistTextarea.value = DEFAULT_WORDS.join(', ');
+      applyWordsFromTextarea();
+      wordlistTextarea.addEventListener('blur', applyWordsFromTextarea);
+      wordlistTextarea.addEventListener('keydown', (e) => {
+        if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+          applyWordsFromTextarea();
+          wordlistTextarea.blur();
+        }
+      });
+      resetWordsBtn.addEventListener('click', () => {
+        wordlistTextarea.value = DEFAULT_WORDS.join(', ');
+        applyWordsFromTextarea();
+      });
+      wordBoxToggle.addEventListener('change', (e) => {
+        document.body.classList.toggle('word-boxed-effect', e.target.checked);
+      });
+
+      // First run
+      rebuild();
+    });
+  </script>
+</body>
+</html>
