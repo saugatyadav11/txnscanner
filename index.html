@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Blockchain Scanner</title>
+  <title>Flipping Letters — Minimal UI + Theme Emboss</title>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,10 +51,6 @@
     body{
       margin:0;
       min-height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:24px 16px;
       overflow:hidden;
       background:var(--background-color);
       color:var(--text-color);
@@ -115,6 +111,10 @@
 
     /* Letters */
     .letter-container{
+      position:fixed;
+      left:50%;
+      bottom:24px;
+      transform:translateX(-50%);
       display:inline-flex;
       flex-direction:column;
       gap:var(--row-gap);
@@ -175,20 +175,18 @@
     /* ========== ALWAYS-OPEN, EXTRA MINIMAL PANEL ========== */
     .ui{
       position:fixed;
-      top:10px; left:10px;
-      width:min(320px, calc(100vw - 20px));
+      top:24px; left:20px;
+      width:min(320px, calc(100vw - 40px));
       z-index:100;
       font-family:var(--ui-font);
       color:var(--ui-text);
     }
 
     .panel{
-      background:var(--ui-bg);
+      background:transparent;
       border:0;
-      border-radius:8px;
-      padding:6px; /* reduced */
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      border-radius:0;
+      padding:0;
       max-height:min(78vh, 560px);
       overflow:auto;
     }
@@ -457,48 +455,21 @@
       font-size:12px;
     }
     .btn:hover{ background: rgba(255,255,255,0.12); }
-    .controls-toggle{
-      display:none;
-      width:100%;
-    }
-    .ui.collapsed #panel{
-      display:none;
-    }
-
     @media (max-width:640px){
-      body{
-        padding:48px 20px 20px;
-        align-items:flex-start;
-        justify-content:flex-start;
-      }
       .ui{
-        top:auto;
-        bottom:20px;
+        top:24px;
         left:20px;
         right:20px;
         width:auto;
       }
       .theme-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
-      .controls-toggle{display:block;margin-bottom:6px;}
       .rowctl.letters-control{display:none}
-      .panel{
-        background:transparent;
-        transform-origin: bottom;
-        transition: transform .2s ease, opacity .2s ease;
-      }
-      .ui.collapsed #panel{
-        display:block;
-        opacity:0;
-        transform: translateY(12px);
-        pointer-events:none;
-      }
     }
   </style>
 </head>
 
 <body>
   <div class="ui">
-    <button class="btn controls-toggle" id="controls-toggle">Controls</button>
     <div class="panel" id="panel">
       <div class="tabs" id="tabs">
         <button class="tab active" data-tab="theme">Theme</button>
@@ -765,7 +736,6 @@
       const bgColorPicker = document.getElementById('bg-color');
       const textColorPicker = document.getElementById('text-color');
       const wordColorPicker = document.getElementById('word-color');
-      const controlsToggle = document.getElementById('controls-toggle');
       const randomizeThemeBtn = document.getElementById('randomize-theme');
       const resetBgBtn = document.querySelector('[data-reset="bg"]');
       const resetTextBtn = document.querySelector('[data-reset="text"]');
@@ -1272,8 +1242,6 @@
       populateThemes();
       applyTheme(0);
       if(window.matchMedia('(max-width:640px)').matches){
-        ui.classList.add('collapsed');
-        controlsToggle.textContent = 'Controls';
         updateLettersForMobile();
       }
       const defaultFontFamily = getComputedStyle(document.documentElement)
@@ -1318,10 +1286,6 @@
         });
         setThemeBaseline();
         rebuild();
-      });
-      controlsToggle.addEventListener('click', () => {
-        ui.classList.toggle('collapsed');
-        controlsToggle.textContent = ui.classList.contains('collapsed') ? 'Controls' : 'Close';
       });
       window.addEventListener('resize', updateLettersForMobile);
       fontFamilySelect.addEventListener('change', () => {
