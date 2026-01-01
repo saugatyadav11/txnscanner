@@ -466,17 +466,32 @@
     }
 
     @media (max-width:640px){
+      body{
+        padding:48px 20px 20px;
+        align-items:flex-start;
+        justify-content:flex-start;
+      }
       .ui{
         top:auto;
-        bottom:10px;
-        left:10px;
-        right:10px;
+        bottom:20px;
+        left:20px;
+        right:20px;
         width:auto;
       }
-      body{padding:20px}
       .theme-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
       .controls-toggle{display:block;margin-bottom:6px;}
       .rowctl.letters-control{display:none}
+      .panel{
+        background:transparent;
+        transform-origin: bottom;
+        transition: transform .2s ease, opacity .2s ease;
+      }
+      .ui.collapsed #panel{
+        display:block;
+        opacity:0;
+        transform: translateY(12px);
+        pointer-events:none;
+      }
     }
   </style>
 </head>
